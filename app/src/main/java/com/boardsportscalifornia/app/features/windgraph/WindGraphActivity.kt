@@ -1,49 +1,80 @@
 package com.boardsportscalifornia.app.features.windgraph
 
+import android.animation.Animator
+import android.animation.AnimatorSet
+import android.animation.ArgbEvaluator
+import android.animation.ValueAnimator
 import android.arch.lifecycle.Observer
 import android.arch.lifecycle.ViewModelProviders
-import android.graphics.BitmapFactory
-import android.graphics.drawable.BitmapDrawable
 import android.os.Bundle
+import android.support.annotation.ColorInt
 import android.support.v7.app.AppCompatActivity
+import android.view.Menu
+import android.view.MenuItem
+import android.view.View
+import android.widget.TextView
+import androidx.core.animation.doOnStart
 import com.boardsportscalifornia.app.R
-import com.boardsportscalifornia.app.app
-import com.boardsportscalifornia.app.data.ViewModelFactory
-import com.boardsportscalifornia.app.data.repository.models.WindGraph
-import com.github.kittinunf.result.failure
-import com.github.kittinunf.result.success
 import kotlinx.android.synthetic.main.wind_graph.last_modified
 import kotlinx.android.synthetic.main.wind_graph.windgraph
 
 class WindGraphActivity : AppCompatActivity() {
 
+    private lateinit var viewModel: WindGraphViewModel
+    private var animator: Animator? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.wind_graph)
 
-        val factory = ViewModelFactory(app.repository)
-        val viewModel = ViewModelProviders.of(this, factory).get(WindGraphViewModel::class.java)
-
-        viewModel.latestWindGraph.observe(this, Observer { result ->
-            if (result != null) {
-                result.success { it.show() }
-                result.failure {
-                    it.cachedWindGraph?.show()
-                    // TODO Display error.
-                }
-            } else {
-                windgraph.setImageDrawable(null)
-                last_modified.text = null
+        viewModel = ViewModelProviders.of(this).get(WindGraphViewModel::class.java)
+        viewModel.windGraph.observe(this, Observer {
+            if (it != null) {
+                animateTo(it)
             }
         })
     }
 
-    private fun WindGraph.show() {
-        windgraph.setImageDrawable(bytes.asBitmapDrawable())
-        last_modified.text = lastModified.toString()
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menuInflater.inflate(R.menu.wind_graph, menu)
+        return super.onCreateOptionsMenu(menu)
     }
 
-    private fun ByteArray.asBitmapDrawable(): BitmapDrawable =
-        BitmapDrawable(resources, BitmapFactory.decodeByteArray(this, 0, size))
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        when (item.itemId) {
+            R.id.reload -> viewModel.refreshWindGraph()
+            else -> return super.onOptionsItemSelected(item)
+        }
+        return true
+    }
+
+    private fun animateTo(viewModel: WindGraphDisplay) {
+        animator?.cancel()
+        animator = AnimatorSet().apply {
+            playTogether(
+                windgraph.createAlphaAnimator(viewModel.alpha).apply {
+                    doOnStart { windgraph.setImageDrawable(viewModel.drawable) }
+                },
+                last_modified.createTextColorAnimator(viewModel.color).apply {
+                    doOnStart { last_modified.text = viewModel.text }
+                }
+            )
+            duration = resources.getInteger(android.R.integer.config_mediumAnimTime).toLong()
+            start()
+        }
+    }
 }
+
+private fun TextView.createTextColorAnimator(@ColorInt targetColor: Int) = ValueAnimator
+    .ofInt(currentTextColor, targetColor)
+    .apply {
+        setEvaluator(ArgbEvaluator())
+        addUpdateListener { setTextColor(it.animatedValue as Int) }
+    }
+
+private fun View.createAlphaAnimator(targetAlpha: Float) = ValueAnimator
+    .ofFloat(alpha, targetAlpha)
+    .apply {
+        addUpdateListener { alpha = it.animatedValue as Float }
+    }
 

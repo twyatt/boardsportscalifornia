@@ -4,15 +4,19 @@ import com.boardsportscalifornia.app.data.FileStorage
 import com.boardsportscalifornia.app.data.api.BoardsportsApi
 import com.boardsportscalifornia.app.data.database.BoardsportsDatabase
 import com.boardsportscalifornia.app.data.database.WindGraphEntity
-import com.boardsportscalifornia.app.data.repository.models.WindGraph
-import com.boardsportscalifornia.app.data.repository.models.WindGraphException
-import com.github.ajalt.timberkt.Timber
-import com.github.kittinunf.result.Result
+import com.boardsportscalifornia.app.data.repository.models.WindGraphData
 import okhttp3.Response
+import okhttp3.ResponseBody
+import org.threeten.bp.ZoneId
 import org.threeten.bp.ZonedDateTime
 import org.threeten.bp.format.DateTimeFormatter
-import ru.gildor.coroutines.retrofit.awaitResult
+import retrofit2.HttpException
+import ru.gildor.coroutines.retrofit.awaitResponse
+import retrofit2.Response as RetrofitResponse
 import ru.gildor.coroutines.retrofit.Result as RetrofitResult
+
+// e.g. "Sun, 08 Jul 2018 04:48:08 GMT"
+private val HTTP_LAST_MODIFIED_HEADER_DATE_FORMATTER = DateTimeFormatter.RFC_1123_DATE_TIME
 
 class BoardsportsRepository(
     private val api: BoardsportsApi,
@@ -22,39 +26,41 @@ class BoardsportsRepository(
 
     private val windGraphDao = database.windGraphDao()
 
-    suspend fun getWindGraph(): Result<WindGraph, WindGraphException> =
-        api.windGraph().awaitResult().let { result ->
-            when (result) {
-                is RetrofitResult.Ok -> {
-                    Timber.d { "Result.Ok" }
-                    val lastModified = result.response.lastModified ?: ZonedDateTime.now()
-                    val filename = "windreport-${lastModified.toEpochSecond()}.png"
-                    val entity = WindGraphEntity(
-                        lastModified = lastModified.toOffsetDateTime(),
-                        filename = filename
-                    )
-                    val bytes = result.value.bytes()
+    fun getLatestWindGraphFromDatabase(): WindGraphData? = windGraphDao.latest()?.loadWindGraph()
 
-                    storage.write(filename, bytes)
-                    windGraphDao.put(entity)
-
-                    Result.Success(WindGraph(bytes, lastModified.toOffsetDateTime()))
-                }
-                is RetrofitResult.Error ->
-                    Result.Failure(
-                        WindGraphException(windGraphDao.latest()?.loadWindGraph(), result.exception)
-                    )
-                is RetrofitResult.Exception ->
-                    Result.Failure(
-                        WindGraphException(windGraphDao.latest()?.loadWindGraph(), result.exception)
-                    )
+    suspend fun getWindGraphFromApi(): WindGraphData =
+        api.windGraph()
+            .awaitResponse()
+            .asWindGraphOrThrow()
+            .also {
+                it.saveToDatabase()
             }
-        }
 
-    private fun WindGraphEntity.loadWindGraph() = WindGraph(storage.read(filename), lastModified)
+    private fun WindGraphEntity.loadWindGraph() =
+        WindGraphData(storage.read(filename), lastModified.toZonedDateTime())
+
+    private fun WindGraphData.saveToDatabase() {
+        val filename = "windreport-${lastModified.toEpochSecond()}.png"
+        val entity = WindGraphEntity(
+            lastModified = lastModified.toOffsetDateTime(),
+            filename = filename
+        )
+        storage.write(filename, bytes)
+        windGraphDao.put(entity)
+    }
 }
 
-private val Response.lastModified: ZonedDateTime? // e.g. "Sun, 08 Jul 2018 04:48:08 GMT"
+private fun RetrofitResponse<ResponseBody>.asWindGraphOrThrow(): WindGraphData {
+    if (isSuccessful) {
+        val lastModified = raw().lastModified ?: ZonedDateTime.now(ZoneId.of("GMT"))
+        val bytes = body()?.bytes() ?: throw NullPointerException("Response body is null")
+        return WindGraphData(bytes, lastModified)
+    } else {
+        throw HttpException(this)
+    }
+}
+
+private val Response.lastModified: ZonedDateTime?
     get() = header("last-modified")?.let {
-        ZonedDateTime.parse(it, DateTimeFormatter.RFC_1123_DATE_TIME)
+        ZonedDateTime.parse(it, HTTP_LAST_MODIFIED_HEADER_DATE_FORMATTER)
     }

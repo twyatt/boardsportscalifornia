@@ -14,7 +14,7 @@ class BoardsportsApiProvider {
         Retrofit.Builder()
             .client(
                 OkHttpClient.Builder()
-                    .addInterceptor(HttpLoggingInterceptor().setLevel(BODY))
+                    .addNetworkInterceptor(HttpLoggingInterceptor().setLevel(BODY))
                     .build()
             )
             .baseUrl(BOARDSPORTS_BASE_URL)

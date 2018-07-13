@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Boardsports</string>
+    <string name="reload">Reload</string>
+    <string name="loading">Loading</string>
 </resources>
