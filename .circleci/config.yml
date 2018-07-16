@@ -26,3 +26,42 @@ jobs:
       - run:
           name: Build project
           command: ./gradlew --no-daemon -PdisablePreDex -Pkotlin.incremental=false assembleDebug
+
+      - persist_to_workspace:
+          root: app/build/outputs/apk
+          paths:
+            - debug
+
+  publish:
+    docker:
+      - image: cibuilds/github:0.10
+    steps:
+      - attach_workspace:
+          at: apk
+      - run:
+          name: Publish to GitHub
+          command: |
+            APK_NAME="boardsportscalifornia-${CIRCLE_TAG}.apk"
+            mv ./apk/debug/app-debug.apk ./${APK_NAME}
+            ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${CIRCLE_TAG} ./${APK_NAME}
+
+# Workflow that publishes to GitHub on a Git tag.
+#
+# https://circleci.com/blog/publishing-to-github-releases-via-circleci/
+#
+workflows:
+  version: 2
+  main:
+    jobs:
+      - build:
+          filters:
+            tags:
+              only: /^\d+\.\d+\.\d+$/
+      - publish:
+          requires:
+            - build
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^\d+\.\d+\.\d+$/
