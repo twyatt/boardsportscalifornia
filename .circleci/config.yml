@@ -1,0 +1,28 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: circleci/android:api-26-alpha
+    working_directory: ~/boardsportscalifornia
+    environment:
+      JVM_OPTS: -Xmx3200m
+      TERM: dumb
+
+    steps:
+      - checkout
+
+      - restore_cache:
+          key: gradle-{{ checksum "settings.gradle" }}-{{ checksum "build.gradle" }}
+
+      - run:
+          name: Download Android dependencies
+          command: ./gradlew --no-daemon androidDependencies
+
+      - save_cache:
+          paths:
+            - ~/.gradle
+          key: gradle-{{ checksum "settings.gradle" }}-{{ checksum "build.gradle" }}
+
+      - run:
+          name: Build project
+          command: ./gradlew --no-daemon -PdisablePreDex -Pkotlin.incremental=false assembleDebug
