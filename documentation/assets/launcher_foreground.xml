@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+v24 drawable because `fillType` of `evenOdd` not supported until API 24
+https://blog.stylingandroid.com/vectordrawable-fill-windings/
+-->
+<vector
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportHeight="108"
+    android:viewportWidth="108"
+    >
+
+    <!-- Shadow -->
+    <path
+        android:fillType="evenOdd"
+        android:pathData="
+            M 24,95
+            C 24,95 108,83 68,33
+            C 68,33 62,19 85,13
+            L 108,70
+            L 70,108
+            Z
+        "
+        android:strokeColor="#00000000"
+        android:strokeWidth="1"
+        >
+
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:endX="91"
+                android:endY="91"
+                android:startX="44"
+                android:startY="61"
+                android:type="linear"
+                >
+
+                <item
+                    android:color="#44000000"
+                    android:offset="0.0"
+                    />
+
+                <item
+                    android:color="#00000000"
+                    android:offset="1.0"
+                    />
+
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!--
+    SVG circle path
+    https://codepen.io/jakob-e/pen/bgBegJ
+
+    M cx - r, cy
+    a r,r 0 1,0 (r * 2),0
+    a r,r 0 1,0 -(r * 2),0
+    -->
+
+    <!-- Hurricane symbol -->
+    <path
+        android:fillColor="@color/white"
+        android:fillType="evenOdd"
+        android:pathData="
+            M 85,13
+            C 85,13 0,25 40,75
+            C 40,75 46,89 24,95
+            C 24,95 108,83 68,33
+            C 68,33 62,19 85,13
+            Z
+
+            M 44,54
+            a 10,10 0 1,0 20,0
+            a 10,10 0 1,0 -20,0
+        "
+        android:strokeColor="@color/white"
+        android:strokeWidth="1"
+        />
+
+</vector>
