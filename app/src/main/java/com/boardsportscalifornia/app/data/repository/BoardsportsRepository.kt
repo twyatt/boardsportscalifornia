@@ -12,6 +12,7 @@ import org.threeten.bp.ZonedDateTime
 import org.threeten.bp.format.DateTimeFormatter
 import retrofit2.HttpException
 import ru.gildor.coroutines.retrofit.awaitResponse
+import java.io.IOException
 import retrofit2.Response as RetrofitResponse
 import ru.gildor.coroutines.retrofit.Result as RetrofitResult
 
@@ -50,10 +51,12 @@ class BoardsportsRepository(
     }
 }
 
+class MalformedResponse(message: String) : IOException(message)
+
 private fun RetrofitResponse<ResponseBody>.asWindGraphOrThrow(): WindGraphData {
     if (isSuccessful) {
         val lastModified = raw().lastModified ?: ZonedDateTime.now(ZoneId.of("GMT"))
-        val bytes = body()?.bytes() ?: throw NullPointerException("Response body is null")
+        val bytes = body()?.bytes() ?: throw MalformedResponse("Response body is null")
         return WindGraphData(bytes, lastModified)
     } else {
         throw HttpException(this)
